@@ -11,6 +11,9 @@ let pointOfScaling = [1.0, 1.0]
 let plane;
 let camera3D;
 let ui;
+let loadedTexture;
+let loadedTexture2;
+let video
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
@@ -192,6 +195,21 @@ function draw() {
     gl.uniform2fv(shProgram.iPointOfScaling, [map(pointOfScaling[0], 0, Math.PI * 12, 0, 1), map(pointOfScaling[1], 0, Math.PI * 2, 0, 1)]);
     gl.uniform3fv(shProgram.iPointPosition, cloverKnot(pointOfScaling[0], pointOfScaling[1], 2, 0.5));
     gl.uniform1f(shProgram.iScalingNumber, parseFloat(document.getElementById('scale').value));
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.identity());
+    gl.bindTexture(gl.TEXTURE_2D, loadedTexture2);
+    if (video) {
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            video
+        );
+    }
+    plane.Draw();
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, loadedTexture);
     camera3D.ApplyLeftFrustum(matAccum1)
     surface.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -413,8 +431,10 @@ function init() {
     ui.add(camera3D, 'mNearClippingDistance', 7, 13)
 
 
-    LoadTexture()
+    loadedTexture = LoadTexture()
+    loadedTexture2 = LoadTexture2()
     getAnimationFrame()
+    setupVideo();
 }
 
 function buildPlaneBufferData() {
@@ -467,6 +487,16 @@ function LoadTexture() {
         );
         draw()
     }
+    return texture;
+}
+function LoadTexture2() {
+    let texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return texture;
 }
 window.onkeydown = (e) => {
     // console.log(e.keyCode)
@@ -483,4 +513,14 @@ window.onkeydown = (e) => {
         pointOfScaling[1] = Math.min(pointOfScaling[1] + 0.1, Math.PI * 2);
     }
     draw();
+}
+
+function setupVideo() {
+    video = document.createElement('video');
+    video.setAttribute('autoplay', true);
+    navigator.getUserMedia({ video: true, audio: false }, function (stream) {
+        video.srcObject = stream;
+    }, function (e) {
+        console.error('Rejected!', e);
+    });
 }
