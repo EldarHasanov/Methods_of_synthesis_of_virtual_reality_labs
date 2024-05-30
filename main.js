@@ -18,6 +18,41 @@ function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
+
+let context, source, panner, biquadFilter;
+// Audio context initialization
+function addEventListeners() {
+    audio.addEventListener('play', () => {
+        if (!context) {
+            context = new AudioContext();
+            source = context.createMediaElementSource(audio);
+            panner = context.createPanner();
+            biquadFilter = context.createBiquadFilter();
+
+            source.connect(panner);
+
+            biquadFilter.type = 'lowshelf';
+            biquadFilter.gain.value = 11;
+            biquadFilter.frequency.value = 1111;
+            context.resume();
+        }
+    })
+    audio.addEventListener('pause', () => {
+        console.log('pause');
+        context.resume();
+    })
+    chck.addEventListener('change', function () {
+        if (chck.checked) {
+            panner.disconnect();
+            panner.connect(biquadFilter);
+            biquadFilter.connect(context.destination);
+        } else {
+            panner.disconnect();
+            panner.connect(context.destination);
+        }
+    });
+}
+
 // Constructor
 function StereoCamera(
     Convergence,
@@ -209,6 +244,12 @@ function draw() {
     }
     plane.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.multiply(m4.identity(), m4.translation(0.9 * Math.sin(Date.now() * 0.0001), 0.9 * Math.cos(Date.now() * 0.0001), 0.1)));
+    if (panner) {
+        panner.setPosition(0.9 * Math.sin(Date.now() * 0.0001), 0.9 * Math.cos(Date.now() * 0.0001), 0.1);
+    }
+    lightSurf.Draw();
+    gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.bindTexture(gl.TEXTURE_2D, loadedTexture);
     camera3D.ApplyLeftFrustum(matAccum1)
     surface.Draw();
@@ -395,9 +436,12 @@ function createProgram(gl, vShader, fShader) {
 /**
  * initialization function that will be called when the page has loaded
  */
+let chck, audio;
 function init() {
     let canvas;
     try {
+        chck = document.getElementById('lwShlf');
+        audio = document.getElementById('msc');
         canvas = document.getElementById("webglcanvas");
         gl = canvas.getContext("webgl");
         if (!gl) {
@@ -417,7 +461,6 @@ function init() {
             "<p>Sorry, could not initialize the WebGL graphics context: " + e + "</p>";
         return;
     }
-
     spaceball = new TrackballRotator(canvas, draw, 0);
     plane = new Model()
     plane.BufferData(buildPlaneBufferData())
@@ -429,6 +472,7 @@ function init() {
     ui.add(camera3D, 'mEyeSeparation', 0.01, 0.1)
     ui.add(camera3D, 'mFOV', 0.1, 1)
     ui.add(camera3D, 'mNearClippingDistance', 7, 13)
+    addEventListeners()
 
 
     loadedTexture = LoadTexture()
